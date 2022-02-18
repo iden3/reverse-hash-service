@@ -110,16 +110,16 @@ func TestCalcHash(t *testing.T) {
 
 			calcedHash, err := mn.calcHash()
 			require.NoError(t, err)
-			require.Equal(t, mn.hash, calcedHash)
+			require.Equal(t, mn.Hash, calcedHash)
 		})
 	}
 }
 
 func makeMiddleNode(t testing.TB, h, l, r string) MiddleNode {
 	return MiddleNode{
-		hash:  makeHash(t, h),
-		left:  makeHash(t, l),
-		right: makeHash(t, r)}
+		Hash:  makeHash(t, h),
+		Left:  makeHash(t, l),
+		Right: makeHash(t, r)}
 }
 
 func makeHash(t testing.TB, s string) merkletree.Hash {

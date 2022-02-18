@@ -8,8 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/iden3/reverse-hash-service/http"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/viper"
 )
 
@@ -40,13 +41,15 @@ func setupConfig() *viper.Viper {
 func main() {
 	v := setupConfig()
 
-	conn, err := pgx.Connect(context.Background(), v.GetString(cfgDb))
+	conn, err := pgxpool.Connect(context.Background(), v.GetString(cfgDb))
 	if err != nil {
 		panic(err)
 	}
-	defer closeWithErrLog(conn, 10*time.Second)
+	defer conn.Close()
 
-	httpSrv := http.New(v.GetString(cfgListenAddr))
+	storage := hashdb.New(conn)
+
+	httpSrv := http.New(v.GetString(cfgListenAddr), storage)
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()

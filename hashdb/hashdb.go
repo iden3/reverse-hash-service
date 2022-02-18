@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 )
 
@@ -26,13 +25,9 @@ func (l Leaf) IsLeaf() bool {
 }
 
 type MiddleNode struct {
-	hash  merkletree.Hash
-	left  merkletree.Hash
-	right merkletree.Hash
-}
-
-func (m MiddleNode) Hash() merkletree.Hash {
-	return m.hash
+	Hash  merkletree.Hash
+	Left  merkletree.Hash
+	Right merkletree.Hash
 }
 
 func (m MiddleNode) IsLeaf() bool {
@@ -40,7 +35,7 @@ func (m MiddleNode) IsLeaf() bool {
 }
 
 func (m MiddleNode) calcHash() (merkletree.Hash, error) {
-	h, err := merkletree.HashElems(m.left.BigInt(), m.right.BigInt())
+	h, err := merkletree.HashElems(m.Left.BigInt(), m.Right.BigInt())
 	if err != nil {
 		return merkletree.Hash{}, errors.WithStack(err)
 	}
@@ -48,7 +43,6 @@ func (m MiddleNode) calcHash() (merkletree.Hash, error) {
 }
 
 type Node interface {
-	Hash() merkletree.Hash
 	IsLeaf() bool
 }
 
@@ -84,18 +78,18 @@ func (p *pgStorage) SaveMiddleNode(ctx context.Context,
 		return false, errors.WithStack(err)
 	}
 
-	if calcedHash != node.hash {
-		return false, errors.New("node hash is not correct")
+	if calcedHash != node.Hash {
+		return false, errors.New("node Hash is not correct")
 	}
 
 	var pgHash, pgLeft, pgRight pgtype.Bytea
-	if err := pgHash.Set(node.hash[:]); err != nil {
+	if err := pgHash.Set(node.Hash[:]); err != nil {
 		return false, errors.WithStack(err)
 	}
-	if err := pgLeft.Set(node.left[:]); err != nil {
+	if err := pgLeft.Set(node.Left[:]); err != nil {
 		return false, errors.WithStack(err)
 	}
-	if err := pgRight.Set(node.right[:]); err != nil {
+	if err := pgRight.Set(node.Right[:]); err != nil {
 		return false, errors.WithStack(err)
 	}
 
@@ -160,20 +154,20 @@ func (p *pgStorage) ByHash(ctx context.Context,
 	}
 
 	if left.Status == pgtype.Present && right.Status == pgtype.Present {
-		middleNode := MiddleNode{hash: hash}
+		middleNode := MiddleNode{Hash: hash}
 		var childHash []byte
 
 		err = left.AssignTo(&childHash)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		copy(middleNode.left[:], childHash)
+		copy(middleNode.Left[:], childHash)
 
 		err = right.AssignTo(&childHash)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		copy(middleNode.right[:], childHash)
+		copy(middleNode.Right[:], childHash)
 		return middleNode, nil
 	} else if left.Status == pgtype.Null && right.Status == pgtype.Null {
 		return Leaf(hash), nil
@@ -186,6 +180,6 @@ func quote(identifier string) string {
 	return pgx.Identifier{identifier}.Sanitize()
 }
 
-func New(db *pgxpool.Pool) Storage {
+func New(db dbI) Storage {
 	return &pgStorage{db}
 }
