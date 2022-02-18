@@ -3,6 +3,7 @@ module github.com/iden3/reverse-hash-service
 go 1.17
 
 require (
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/iden3/go-merkletree-sql v1.0.0-pre8
 	github.com/jackc/pgconn v1.11.0
 	github.com/jackc/pgtype v1.10.0
