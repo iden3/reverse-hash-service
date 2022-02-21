@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	stderr "errors"
 	"log"
 	"net/http"
 
@@ -45,13 +46,17 @@ type nodesStorage interface {
 }
 
 func New(listenAddr string, storage nodesStorage) Srv {
+	var s srv
+	s.s = &http.Server{Addr: listenAddr, Handler: setupRouter(storage)}
+	return &s
+}
+
+func setupRouter(storage nodesStorage) *chi.Mux {
 	r := chi.NewRouter()
 	r.HandleFunc("/ping", getPingHandler()) // Liveness probe
 	r.Get("/node/{"+paramHash+"}", getNodeHandler(storage))
 	r.Post("/node", getNodeSubmitHandler(storage))
-	var s srv
-	s.s = &http.Server{Addr: listenAddr, Handler: r}
-	return &s
+	return r
 }
 
 func getPingHandler() http.HandlerFunc {
@@ -75,7 +80,11 @@ func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 		}
 
 		node, err := storage.ByHash(r.Context(), nodeHash)
-		if err != nil {
+		if stderr.Is(err, hashdb.ErrDoesNotExists) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"status":"not found"}`))
+			return
+		} else if err != nil {
 			log.Printf("%+v", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(jsonErr(err.Error())))
@@ -138,7 +147,7 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			}
 		}
 
-		_, _ = w.Write([]byte(`{"status": "OK"}`))
+		_, _ = w.Write([]byte(`{"status":"OK"}`))
 	}
 }
 

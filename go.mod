@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgtype v1.10.0
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/olomix/go-test-pg/v2 v2.0.0-20211011042444-0449c0e4397e
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
 )
