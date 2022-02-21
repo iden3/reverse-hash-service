@@ -12,6 +12,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	paramHash = "hash"
+)
+
 type Srv interface {
 	Run() error
 	Close(context.Context) error
@@ -35,11 +39,15 @@ func (s *srv) Close(ctx context.Context) error {
 	return errors.WithStack(s.s.Shutdown(ctx))
 }
 
-func New(listenAddr string, storage nodesSubmitter) Srv {
+type nodesStorage interface {
+	nodesSubmitter
+	nodesGetter
+}
+
+func New(listenAddr string, storage nodesStorage) Srv {
 	r := chi.NewRouter()
-	// Liveness probe
-	r.HandleFunc("/ping", getPingHandler())
-	r.Get("/node", getNodeHandler())
+	r.HandleFunc("/ping", getPingHandler()) // Liveness probe
+	r.Get("/node/{"+paramHash+"}", getNodeHandler(storage))
 	r.Post("/node", getNodeSubmitHandler(storage))
 	var s srv
 	s.s = &http.Server{Addr: listenAddr, Handler: r}
@@ -52,8 +60,30 @@ func getPingHandler() http.HandlerFunc {
 	}
 }
 
-func getNodeHandler() http.HandlerFunc {
-	return nil
+type nodesGetter interface {
+	ByHash(ctx context.Context, hash merkletree.Hash) (hashdb.Node, error)
+}
+
+func getNodeHandler(storage nodesGetter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var nodeHash merkletree.Hash
+		err := unpackHash(&nodeHash, chi.URLParam(r, paramHash))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(jsonErr(err.Error())))
+			return
+		}
+
+		node, err := storage.ByHash(r.Context(), nodeHash)
+		if err != nil {
+			log.Printf("%+v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(jsonErr(err.Error())))
+			return
+		}
+
+		jsonResp(w, nodeResponse{node})
+	}
 }
 
 type nodesSubmitter interface {
@@ -122,4 +152,17 @@ func jsonErr(e string) string {
 		return e
 	}
 	return string(res)
+}
+
+func jsonResp(w http.ResponseWriter, in interface{}) {
+	data, err := json.Marshal(in)
+	if err != nil {
+		log.Printf("%+v", errors.WithStack(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(jsonErr(err.Error())))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
