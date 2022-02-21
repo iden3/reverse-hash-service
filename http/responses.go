@@ -19,8 +19,8 @@ func (n nodeResponse) MarshalJSON() ([]byte, error) {
 	case hashdb.MiddleNode:
 		return []byte(`{"` +
 			keyHash + `":"` + hex.EncodeToString(nt.Hash[:]) + `","` +
-			keyRight + `":"` + hex.EncodeToString(nt.Right[:]) + `","` +
-			keyLeft + `":"` + hex.EncodeToString(nt.Left[:]) + `"}`), nil
+			keyLeft + `":"` + hex.EncodeToString(nt.Left[:]) + `","` +
+			keyRight + `":"` + hex.EncodeToString(nt.Right[:]) + `"}`), nil
 	}
 	return nil, errors.New("unexpected node, can't marshal to json")
 }
