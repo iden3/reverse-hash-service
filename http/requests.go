@@ -19,6 +19,7 @@ const (
 	keyLeft   = "left"
 	keyRight  = "right"
 	keyStatus = "status"
+	keyError  = "error"
 	keyNode   = "node"
 )
 

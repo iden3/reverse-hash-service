@@ -67,7 +67,7 @@ func setupRouter(storage nodesStorage) *chi.Mux {
 
 func getPingHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("OK"))
+		jsonResp(w, http.StatusOK, map[string]interface{}{keyStatus: statusOK})
 	}
 }
 
@@ -80,24 +80,22 @@ func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 		var nodeHash merkletree.Hash
 		err := unpackHash(&nodeHash, chi.URLParam(r, paramHash))
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(jsonErr(err.Error())))
+			jsonErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		node, err := storage.ByHash(r.Context(), nodeHash)
 		if stderr.Is(err, hashdb.ErrDoesNotExists) {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"status":"` + statusNotFound + `"}`))
+			jsonResp(w, http.StatusNotFound,
+				map[string]interface{}{keyStatus: statusNotFound})
 			return
 		} else if err != nil {
 			log.Printf("%+v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(jsonErr(err.Error())))
+			jsonErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		jsonResp(w, nodeResponse{node, statusOK})
+		jsonResp(w, http.StatusOK, nodeResponse{node, statusOK})
 	}
 }
 
@@ -121,8 +119,7 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 		dec := json.NewDecoder(r.Body)
 		err := dec.Decode(&req)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(jsonErr(err.Error())))
+			jsonErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -145,8 +142,10 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			default:
 				log.Printf("%+v", err)
 			}
-			rs = append(rs,
-				respItem{Hash: hexHash(hash), Status: "error", Error: errMsg})
+			rs = append(rs, respItem{
+				Hash:   hexHash(hash),
+				Status: statusError,
+				Error:  errMsg})
 		}
 
 		appendRs := func(hash merkletree.Hash, err error) {
@@ -163,7 +162,7 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 				return
 			}
 			rs = append(rs,
-				respItem{Hash: hexHash(hash), Status: "OK", Message: msg})
+				respItem{Hash: hexHash(hash), Status: statusOK, Message: msg})
 		}
 
 	LOOP:
@@ -194,31 +193,33 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			}
 		}
 
-		jsonResp(w, rs)
+		jsonResp(w, http.StatusOK, rs)
 	}
 }
 
-func jsonErr(e string) string {
-	res, err := json.Marshal(map[string]interface{}{
-		"status": "error",
-		"error":  e,
+func jsonErr(w http.ResponseWriter, httpCode int, e string) {
+	if httpCode == 0 {
+		httpCode = http.StatusInternalServerError
+	}
+
+	jsonResp(w, httpCode, map[string]interface{}{
+		keyStatus: statusError,
+		keyError:  e,
 	})
-	if err != nil {
-		log.Printf("[assertion] why?")
-		return e
-	}
-	return string(res)
 }
 
-func jsonResp(w http.ResponseWriter, in interface{}) {
+func jsonResp(w http.ResponseWriter, httpCode int, in interface{}) {
 	data, err := json.Marshal(in)
 	if err != nil {
 		log.Printf("%+v", errors.WithStack(err))
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(jsonErr(err.Error())))
+		_, _ = w.Write([]byte("unable to marshal response"))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	if httpCode == 0 {
+		httpCode = http.StatusOK
+	}
+	w.WriteHeader(httpCode)
 	_, _ = w.Write(data)
 }

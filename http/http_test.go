@@ -85,13 +85,25 @@ func TestGetNodeHandler(t *testing.T) {
 			title:    "Get MiddleNode",
 			req:      "/node/2c32381aebce52c0c5c5a1fb92e726f66d977b58a1c8a0c14bb31ef968187325",
 			wantCode: http.StatusOK,
-			wantBody: `{"hash":"2c32381aebce52c0c5c5a1fb92e726f66d977b58a1c8a0c14bb31ef968187325","left":"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e","right":"e809a4ed2cf98922910e456f1e56862bb958777f5ff0ea6799360113257f220f"}`,
+			wantBody: `{
+  "status":"OK",
+  "node":{
+    "hash":"2c32381aebce52c0c5c5a1fb92e726f66d977b58a1c8a0c14bb31ef968187325",
+    "left":"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e",
+    "right":"e809a4ed2cf98922910e456f1e56862bb958777f5ff0ea6799360113257f220f"
+  }
+}`,
 		},
 		{
 			title:    "Get Leaf",
 			req:      "/node/658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e",
 			wantCode: http.StatusOK,
-			wantBody: `{"hash":"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e"}`,
+			wantBody: `{
+  "status":"OK",
+  "node":{
+    "hash":"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e"
+  }
+}`,
 		},
 		{
 			title:    "Missing Node",
@@ -116,7 +128,7 @@ func TestGetNodeHandler(t *testing.T) {
 			router.ServeHTTP(rr, req)
 
 			require.Equal(t, tc.wantCode, rr.Code)
-			require.Equal(t, tc.wantBody, rr.Body.String())
+			require.JSONEq(t, tc.wantBody, rr.Body.String())
 		})
 	}
 }
