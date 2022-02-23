@@ -1,6 +1,7 @@
 package hashdb
 
 import (
+	"bytes"
 	"context"
 	stderr "errors"
 	"fmt"
@@ -13,6 +14,11 @@ import (
 )
 
 var ErrDoesNotExists = stderr.New("node does not exists")
+var ErrIncorrectHash = stderr.New("node hash is not correct")
+var ErrAlreadyExists = stderr.New("node already exists")
+var ErrLeafUpgraded = stderr.New("leaf upgraded to middle node")
+var ErrCollision = stderr.New("node hash collision")
+var ErrMiddleNodeExists = stderr.New("middle node exists with same hash")
 
 type Leaf merkletree.Hash
 
@@ -47,13 +53,21 @@ type Node interface {
 }
 
 type Storage interface {
-	SaveMiddleNode(ctx context.Context, node MiddleNode) (bool, error)
-	SaveLeaf(ctx context.Context, node Leaf) (bool, error)
+	SaveMiddleNode(ctx context.Context, node MiddleNode) error
+	SaveLeaf(ctx context.Context, node Leaf) error
 	ByHash(ctx context.Context, hash merkletree.Hash) (Node, error)
 }
 
+type pgChildren struct{ left, right pgtype.Bytea }
+
 const (
 	tableMtNode = "mt_node"
+)
+
+// discriminators to distinguish insert from selected rows from DB
+const (
+	opInsert = "i"
+	opSelect = "s"
 )
 
 type dbI interface {
@@ -68,69 +82,174 @@ type pgStorage struct {
 	db dbI
 }
 
-// SaveMiddleNode inserts middle node into database. If node already exists
-// return false. If inserted, return true.
+// SaveMiddleNode inserts middle node into database.
+// Possible errors:
+//   * ErrIncorrectHash — node hash does not match to hash of children
+//   * ErrAlreadyExists — this node already exists in database
+//   * ErrLeafUpgraded  — there was a leaf in a database, and it was upgraded to
+//                        middle node
+//   * ErrCollision     — another node with this hash but different children
+//                        found in database
 func (p *pgStorage) SaveMiddleNode(ctx context.Context,
-	node MiddleNode) (bool, error) {
+	node MiddleNode) error {
 
 	calcedHash, err := node.calcHash()
 	if err != nil {
-		return false, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 
 	if calcedHash != node.Hash {
-		return false, errors.New("node Hash is not correct")
+		return errors.WithStack(ErrIncorrectHash)
 	}
 
 	var pgHash, pgLeft, pgRight pgtype.Bytea
 	if err := pgHash.Set(node.Hash[:]); err != nil {
-		return false, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	if err := pgLeft.Set(node.Left[:]); err != nil {
-		return false, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	if err := pgRight.Set(node.Right[:]); err != nil {
-		return false, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 
-	var id pgtype.Int8
-	query := fmt.Sprintf(
-		`
-INSERT INTO %[1]v (hash, lchild, rchild) VALUES ($1, $2, $3)
-ON CONFLICT (hash) DO NOTHING
-RETURNING id`,
+	query := fmt.Sprintf(`
+WITH
+  ins AS (
+    INSERT INTO %[1]v (hash, lchild, rchild) VALUES ($1, $2, $3)
+    ON CONFLICT (hash) DO UPDATE
+    SET lchild = $2, rchild = $3
+    WHERE %[1]v.lchild IS NULL AND %[1]v.rchild IS NULL
+    RETURNING $4, lchild, rchild
+)
+SELECT * FROM ins
+UNION ALL
+SELECT $5, lchild, rchild FROM %[1]v WHERE hash = $1`,
 		quote(tableMtNode))
-	err = p.db.QueryRow(ctx, query, pgHash, pgLeft, pgRight).Scan(&id)
-	switch err {
-	case pgx.ErrNoRows:
-		return false, nil
-	case nil:
-		return true, nil
+	rows, err := p.db.Query(ctx, query, pgHash, pgLeft, pgRight, opInsert,
+		opSelect)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer rows.Close()
+
+	results := map[string]pgChildren{}
+
+	for rows.Next() {
+		var c pgChildren
+		var op string
+		if err := rows.Scan(&op, &c.left, &c.right); err != nil {
+			return errors.WithStack(err)
+		}
+		results[op] = c
+	}
+
+	if err = rows.Err(); err != nil {
+		return errors.WithStack(err)
+	}
+
+	iRow, iRowExists := results[opInsert]
+	sRow, sRowExists := results[opSelect]
+
+	switch {
+	// 1: added a new row into database
+	case !sRowExists && iRowExists &&
+		iRow.left.Status == pgtype.Present &&
+		bytes.Equal(iRow.left.Bytes, node.Left[:]) &&
+		iRow.right.Status == pgtype.Present &&
+		bytes.Equal(iRow.right.Bytes, node.Right[:]):
+		return nil
+	// 2: upgraded leaf to middle node
+	case sRowExists && iRowExists &&
+		iRow.left.Status == pgtype.Present &&
+		bytes.Equal(iRow.left.Bytes, node.Left[:]) &&
+		iRow.right.Status == pgtype.Present &&
+		bytes.Equal(iRow.right.Bytes, node.Right[:]) &&
+		sRow.left.Status == pgtype.Null &&
+		sRow.right.Status == pgtype.Null:
+		return errors.WithStack(ErrLeafUpgraded)
+	// 3: node hash collision
+	case sRowExists && !iRowExists &&
+		sRow.left.Status == pgtype.Present &&
+		sRow.right.Status == pgtype.Present &&
+		(!bytes.Equal(sRow.left.Bytes, node.Left[:]) ||
+			!bytes.Equal(sRow.right.Bytes, node.Right[:])):
+		return errors.WithStack(ErrCollision)
+	// 4: this node already exists
+	case sRowExists && !iRowExists &&
+		sRow.left.Status == pgtype.Present &&
+		sRow.right.Status == pgtype.Present &&
+		bytes.Equal(sRow.left.Bytes, node.Left[:]) &&
+		bytes.Equal(sRow.right.Bytes, node.Right[:]):
+		return errors.WithStack(ErrAlreadyExists)
+	// unexpected case
 	default:
-		return false, errors.WithStack(err)
+		return errors.New("[assertion] unexpected middle node insertion case")
 	}
 }
 
-func (p *pgStorage) SaveLeaf(ctx context.Context, node Leaf) (bool, error) {
+// SaveLeaf inserts leaf node into database.
+// Possible errors:
+//   * ErrAlreadyExists    — this node already exists in database
+//   * ErrMiddleNodeExists — middle node with the same hash exists in database
+func (p *pgStorage) SaveLeaf(ctx context.Context, node Leaf) error {
 	var pgHash pgtype.Bytea
 	if err := pgHash.Set(node[:]); err != nil {
-		return false, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
-	var id pgtype.Int8
-	query := fmt.Sprintf(
-		`
-INSERT INTO %[1]v (hash) VALUES ($1)
-ON CONFLICT (hash) DO NOTHING
-RETURNING id`,
+
+	query := fmt.Sprintf(`
+WITH
+  ins AS (
+    INSERT INTO %[1]v (hash) VALUES ($1)
+    ON CONFLICT (hash) DO NOTHING
+    RETURNING $2, lchild, rchild
+)
+SELECT * FROM ins
+UNION ALL
+SELECT $3, lchild, rchild FROM %[1]v WHERE hash = $1`,
 		quote(tableMtNode))
-	err := p.db.QueryRow(ctx, query, pgHash).Scan(&id)
-	switch err {
-	case pgx.ErrNoRows:
-		return false, nil
-	case nil:
-		return true, nil
+	rows, err := p.db.Query(ctx, query, pgHash, opInsert, opSelect)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	results := map[string]pgChildren{}
+
+	for rows.Next() {
+		var c pgChildren
+		var op string
+		if err := rows.Scan(&op, &c.left, &c.right); err != nil {
+			return errors.WithStack(err)
+		}
+		results[op] = c
+	}
+
+	if err = rows.Err(); err != nil {
+		return errors.WithStack(err)
+	}
+
+	iRow, iRowExists := results[opInsert]
+	sRow, sRowExists := results[opSelect]
+
+	switch {
+	// 1: added a new row into database
+	case !sRowExists && iRowExists &&
+		iRow.left.Status == pgtype.Null &&
+		iRow.right.Status == pgtype.Null:
+		return nil
+	// 2: this node already exists
+	case sRowExists && !iRowExists &&
+		sRow.left.Status == pgtype.Null &&
+		sRow.right.Status == pgtype.Null:
+		return errors.WithStack(ErrAlreadyExists)
+	// 3: middle node exists with this hash
+	case sRowExists && !iRowExists &&
+		(sRow.left.Status == pgtype.Present ||
+			sRow.right.Status == pgtype.Present):
+		return errors.WithStack(ErrMiddleNodeExists)
+	// unexpected case
 	default:
-		return false, errors.WithStack(err)
+		return errors.New("[assertion] unexpected leaf node insertion case")
 	}
 }
 

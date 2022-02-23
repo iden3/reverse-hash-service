@@ -17,29 +17,77 @@ var dbtest = go_test_pg.Pgpool{
 }
 
 func TestPgStorage_SaveMiddleNode(t *testing.T) {
-	storage := New(dbtest.WithEmpty(t))
+	storage := New(dbtest.WithSQLs(t, []string{
+		`
+INSERT INTO mt_node (hash, lchild, rchild) VALUES
+  (
+    E'\\x390a8a2ba18c54cca77f2c956b9293da20237b88de980b0c99ead0447e10d410',
+    E'\\x1111111111111111111111111111111111111111111111111111111111111111',
+    E'\\x0000000000000000000000000000000000000000000000000000000000000000'
+  ),
+  (
+    E'\\x5e0ce1bbf42d77fa28d3e3d67cfd63fd25f04f724cf14ef1365960f0df316e19',
+    NULL,
+    NULL
+  )`,
+	}))
+
+	ctx := context.Background()
+
 	mn := makeMiddleNode(t,
 		"16938931282012536952003457515784019977456394464750325752202529629073057526316",
 		"13668806873217811193138343672265398727158334092717678918544074543040898436197",
 		"6845643050256962634421298815823256099092239904213746305198440125223303121384")
-	created, err := storage.SaveMiddleNode(context.Background(), mn)
+	err := storage.SaveMiddleNode(ctx, mn)
 	require.NoError(t, err)
-	require.True(t, created)
-	created, err = storage.SaveMiddleNode(context.Background(), mn)
-	require.NoError(t, err)
-	require.False(t, created)
+	err = storage.SaveMiddleNode(ctx, mn)
+	require.ErrorIs(t, err, ErrAlreadyExists)
+
+	mn = makeMiddleNode(t,
+		"16938931282012536952003457515784019977456394464750325752202529629073057526316",
+		"11111111113217811193138343672265398727158334092717678918544074543040898436197",
+		"6845643050256962634421298815823256099092239904213746305198440125223303121384")
+	err = storage.SaveMiddleNode(ctx, mn)
+	require.ErrorIs(t, err, ErrIncorrectHash)
+
+	mn = makeMiddleNode(t,
+		"7611690987207287456482922174590148392604233641821586556686773300599336864313",
+		"10992852378443248723905195818991694990575654826826443287789374314498732451112",
+		"16938931282012536952003457515784019977456394464750325752202529629073057526316")
+	err = storage.SaveMiddleNode(ctx, mn)
+	require.ErrorIs(t, err, ErrCollision)
+
+	mn = makeMiddleNode(t,
+		"11502518614660966970001255759017683381052690921079261831452444371947400268894",
+		"9121124718421336894498474736143976849105894580426274368434923283192853493170",
+		"7611690987207287456482922174590148392604233641821586556686773300599336864313")
+	err = storage.SaveMiddleNode(ctx, mn)
+	require.ErrorIs(t, err, ErrLeafUpgraded)
 }
 
 func TestPgStorage_SaveLeaf(t *testing.T) {
 	storage := New(dbtest.WithEmpty(t))
+	ctx := context.Background()
+
 	ln := Leaf(makeHash(t,
 		"16938931282012536952003457515784019977456394464750325752202529629073057526316"))
-	created, err := storage.SaveLeaf(context.Background(), ln)
+	err := storage.SaveLeaf(ctx, ln)
 	require.NoError(t, err)
-	require.True(t, created)
-	created, err = storage.SaveLeaf(context.Background(), ln)
+
+	err = storage.SaveLeaf(ctx, ln)
+	require.ErrorIs(t, err, ErrAlreadyExists)
+
+	// try to insert leaf node with same hash as existing middle node
+	mn := makeMiddleNode(t,
+		"11502518614660966970001255759017683381052690921079261831452444371947400268894",
+		"9121124718421336894498474736143976849105894580426274368434923283192853493170",
+		"7611690987207287456482922174590148392604233641821586556686773300599336864313")
+	err = storage.SaveMiddleNode(ctx, mn)
 	require.NoError(t, err)
-	require.False(t, created)
+	ln = Leaf(makeHash(t,
+		"11502518614660966970001255759017683381052690921079261831452444371947400268894"))
+	err = storage.SaveLeaf(ctx, ln)
+	require.ErrorIs(t, err, ErrMiddleNodeExists)
 }
 
 func TestPgStorage_ByHash(t *testing.T) {
@@ -52,16 +100,14 @@ func TestPgStorage_ByHash(t *testing.T) {
 		"13668806873217811193138343672265398727158334092717678918544074543040898436197",
 		"6845643050256962634421298815823256099092239904213746305198440125223303121384")
 	ctx := context.Background()
-	created, err := storage.SaveMiddleNode(ctx, mn)
+	err := storage.SaveMiddleNode(ctx, mn)
 	require.NoError(t, err)
-	require.True(t, created)
 
 	lHash := makeHash(t,
 		"13668806873217811193138343672265398727158334092717678918544074543040898436197")
 	ln := Leaf(lHash)
-	created, err = storage.SaveLeaf(ctx, ln)
+	err = storage.SaveLeaf(ctx, ln)
 	require.NoError(t, err)
-	require.True(t, created)
 
 	mn2, err := storage.ByHash(ctx, mHash)
 	require.NoError(t, err)

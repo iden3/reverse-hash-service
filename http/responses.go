@@ -2,25 +2,36 @@ package http
 
 import (
 	"encoding/hex"
+	"encoding/json"
 
+	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/pkg/errors"
 )
 
 type nodeResponse struct {
-	hashdb.Node
+	node   hashdb.Node
+	status string
 }
 
 func (n nodeResponse) MarshalJSON() ([]byte, error) {
-	switch nt := n.Node.(type) {
+	node := map[string]interface{}{}
+	switch nt := n.node.(type) {
 	case hashdb.Leaf:
-		return []byte(
-			`{"` + keyHash + `":"` + hex.EncodeToString(nt[:]) + `"}`), nil
+		node[keyHash] = hexHash(nt)
 	case hashdb.MiddleNode:
-		return []byte(`{"` +
-			keyHash + `":"` + hex.EncodeToString(nt.Hash[:]) + `","` +
-			keyLeft + `":"` + hex.EncodeToString(nt.Left[:]) + `","` +
-			keyRight + `":"` + hex.EncodeToString(nt.Right[:]) + `"}`), nil
+		node[keyHash] = hexHash(nt.Hash)
+		node[keyLeft] = hexHash(nt.Left)
+		node[keyRight] = hexHash(nt.Right)
 	}
-	return nil, errors.New("unexpected node, can't marshal to json")
+
+	resp := map[string]interface{}{keyStatus: n.status, keyNode: node}
+	respBytes, err := json.Marshal(resp)
+	return respBytes, errors.WithStack(err)
+}
+
+type hexHash merkletree.Hash
+
+func (h hexHash) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + hex.EncodeToString(h[:]) + `"`), nil
 }

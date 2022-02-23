@@ -15,9 +15,11 @@ type node struct {
 type nodeSubmitRequest []node
 
 const (
-	keyHash  = "hash"
-	keyLeft  = "left"
-	keyRight = "right"
+	keyHash   = "hash"
+	keyLeft   = "left"
+	keyRight  = "right"
+	keyStatus = "status"
+	keyNode   = "node"
 )
 
 func (n *node) UnmarshalJSON(bytes []byte) error {
