@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/iden3/reverse-hash-service/http"
+	"github.com/iden3/reverse-hash-service/log"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/viper"
 )
@@ -41,6 +42,12 @@ func setupConfig() *viper.Viper {
 func main() {
 	v := setupConfig()
 
+	if err := log.Setup(); err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
+	// Syncing of console causes error. Ignore any errors on Sync.
+	defer func() { _ = log.Sync() }()
+
 	conn, err := pgxpool.Connect(context.Background(), v.GetString(cfgDb))
 	if err != nil {
 		panic(err)
@@ -61,14 +68,14 @@ func main() {
 		closeWithErrLog(httpSrv, 10*time.Second)
 	}()
 
-	log.Printf("Start listening on %v", v.GetString(cfgListenAddr))
+	log.Infof("Start listening on %v", v.GetString(cfgListenAddr))
 	err = httpSrv.Run()
 	if err != nil {
-		log.Printf("%+v", err)
+		log.Errorf("%+v", err)
 	}
 
 	wg.Wait()
-	log.Print("Bye")
+	log.Infof("Bye")
 }
 
 type ctxCloser interface {
@@ -80,6 +87,6 @@ func closeWithErrLog(c ctxCloser, timeout time.Duration) {
 	defer cancel()
 	err := c.Close(ctx)
 	if err != nil {
-		log.Printf("%+v", err)
+		log.Errorf("%+v", err)
 	}
 }
