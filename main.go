@@ -13,6 +13,7 @@ import (
 	"github.com/iden3/reverse-hash-service/log"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // config settings
@@ -71,7 +72,7 @@ func main() {
 	log.Infof("Start listening on %v", v.GetString(cfgListenAddr))
 	err = httpSrv.Run()
 	if err != nil {
-		log.Errorf("%+v", err)
+		log.Errorw(err.Error(), zap.Error(err))
 	}
 
 	wg.Wait()

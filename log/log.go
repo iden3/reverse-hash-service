@@ -45,6 +45,10 @@ func Errorf(format string, v ...interface{}) {
 	Logger.Errorf(format, v...)
 }
 
+func Errorw(msg string, keysAndValues ...interface{}) {
+	Logger.Errorw(msg, keysAndValues...)
+}
+
 func WithContext(ctx context.Context) *zap.SugaredLogger {
 	rID := middleware.GetReqID(ctx)
 	if rID != "" {
