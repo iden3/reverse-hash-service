@@ -1,30 +1,54 @@
 package log
 
 import (
+	"context"
+
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
-var logger *zap.SugaredLogger
+var Logger *zap.SugaredLogger
+
+const fieldRequestID = "request-id"
 
 // Setup creates new global logger. It is not thread safe.
 func Setup() error {
-	l, err := zap.NewDevelopment()
+	dc := zap.NewDevelopmentConfig()
+
+	// Maybe customize console encoder one day. To write pretty message on
+	// local console logging
+	//
+	//err := zap.RegisterEncoder("sc", NewConsoleEncoder)
+	//if err != nil {
+	//	return errors.WithStack(err)
+	//}
+	//dc.Encoding = "sc"
+
+	l, err := dc.Build()
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	logger = l.Sugar()
+	Logger = l.Sugar()
 	return nil
 }
 
 func Sync() error {
-	return logger.Sync()
+	return Logger.Sync()
 }
 
 func Infof(format string, v ...interface{}) {
-	logger.Infof(format, v...)
+	Logger.Infof(format, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
-	logger.Errorf(format, v...)
+	Logger.Errorf(format, v...)
+}
+
+func WithContext(ctx context.Context) *zap.SugaredLogger {
+	rID := middleware.GetReqID(ctx)
+	if rID != "" {
+		return Logger.With(fieldRequestID, rID)
+	}
+	return Logger
 }

@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	stderr "errors"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
+	"github.com/iden3/reverse-hash-service/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -59,6 +61,8 @@ func New(listenAddr string, storage nodesStorage) Srv {
 
 func setupRouter(storage nodesStorage) *chi.Mux {
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(Logger(log.Logger, ""))
 	r.HandleFunc("/ping", getPingHandler()) // Liveness probe
 	r.Get("/node/{"+paramHash+"}", getNodeHandler(storage))
 	r.Post("/node", getNodeSubmitHandler(storage))
@@ -67,7 +71,8 @@ func setupRouter(storage nodesStorage) *chi.Mux {
 
 func getPingHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		jsonResp(w, http.StatusOK, map[string]interface{}{keyStatus: statusOK})
+		jsonResp(r.Context(), w, http.StatusOK,
+			map[string]interface{}{keyStatus: statusOK})
 	}
 }
 
@@ -77,25 +82,27 @@ type nodesGetter interface {
 
 func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		var nodeHash merkletree.Hash
 		err := unpackHash(&nodeHash, chi.URLParam(r, paramHash))
 		if err != nil {
-			jsonErr(w, http.StatusBadRequest, err.Error())
+			jsonErr(ctx, w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		node, err := storage.ByHash(r.Context(), nodeHash)
 		if stderr.Is(err, hashdb.ErrDoesNotExists) {
-			jsonResp(w, http.StatusNotFound,
+			jsonResp(ctx, w, http.StatusNotFound,
 				map[string]interface{}{keyStatus: statusNotFound})
 			return
 		} else if err != nil {
-			log.Printf("%+v", err)
-			jsonErr(w, http.StatusInternalServerError, err.Error())
+			log.WithContext(ctx).Errorw(err.Error(), zap.Error(err))
+			jsonErr(ctx, w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		jsonResp(w, http.StatusOK, nodeResponse{node, statusOK})
+		jsonResp(ctx, w, http.StatusOK, nodeResponse{node, statusOK})
 	}
 }
 
@@ -115,15 +122,15 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 	}
 	type resp []respItem
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		var req nodeSubmitRequest
 		dec := json.NewDecoder(r.Body)
 		err := dec.Decode(&req)
 		if err != nil {
-			jsonErr(w, http.StatusBadRequest, err.Error())
+			jsonErr(ctx, w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		ctx := r.Context()
 		var rs resp
 
 		appendErr := func(hash merkletree.Hash, err error) {
@@ -140,7 +147,7 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			case errors.Is(err, hashdb.ErrMiddleNodeExists):
 				errMsg = "middle node with the same hash exists"
 			default:
-				log.Printf("%+v", err)
+				log.WithContext(r.Context()).Errorw(err.Error(), zap.Error(err))
 			}
 			rs = append(rs, respItem{
 				Hash:   hexHash(hash),
@@ -193,25 +200,30 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			}
 		}
 
-		jsonResp(w, http.StatusOK, rs)
+		jsonResp(ctx, w, http.StatusOK, rs)
 	}
 }
 
-func jsonErr(w http.ResponseWriter, httpCode int, e string) {
+func jsonErr(ctx context.Context, w http.ResponseWriter, httpCode int,
+	e string) {
+
 	if httpCode == 0 {
 		httpCode = http.StatusInternalServerError
 	}
 
-	jsonResp(w, httpCode, map[string]interface{}{
+	jsonResp(ctx, w, httpCode, map[string]interface{}{
 		keyStatus: statusError,
 		keyError:  e,
 	})
 }
 
-func jsonResp(w http.ResponseWriter, httpCode int, in interface{}) {
+func jsonResp(ctx context.Context, w http.ResponseWriter, httpCode int,
+	in interface{}) {
+
 	data, err := json.Marshal(in)
 	if err != nil {
-		log.Printf("%+v", errors.WithStack(err))
+		log.WithContext(ctx).Errorw(err.Error(),
+			zap.Error(errors.WithStack(err)))
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("unable to marshal response"))
 		return
