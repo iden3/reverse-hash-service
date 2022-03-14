@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var Logger *zap.SugaredLogger
+var Logger = zap.NewNop().Sugar()
 
 const fieldRequestID = "request-id"
 
