@@ -122,7 +122,7 @@ func TestGetNodeHandler(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.title, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, tc.req, nil)
+			req, err := http.NewRequest(http.MethodGet, tc.req, http.NoBody)
 			require.NoError(t, err)
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
