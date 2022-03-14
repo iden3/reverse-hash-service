@@ -233,9 +233,9 @@ func TestGetNodeSubmitHandler(t *testing.T) {
 			}
 			method := http.MethodGet
 			if tc.method != "" {
-				method = method
+				method = tc.method
 			}
-			req, err := http.NewRequest(tc.method, tc.req, bodyReader)
+			req, err := http.NewRequest(method, tc.req, bodyReader)
 			require.NoError(t, err)
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
