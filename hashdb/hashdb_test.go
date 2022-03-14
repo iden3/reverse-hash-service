@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/iden3/go-merkletree-sql"
-	go_test_pg "github.com/olomix/go-test-pg/v2"
+	go_test_pg "github.com/olomix/go-test-pg"
 	"github.com/stretchr/testify/require"
 )
 

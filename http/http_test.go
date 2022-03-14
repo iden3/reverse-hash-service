@@ -11,7 +11,7 @@ import (
 
 	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
-	go_test_pg "github.com/olomix/go-test-pg/v2"
+	go_test_pg "github.com/olomix/go-test-pg"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
