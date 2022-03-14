@@ -19,11 +19,11 @@ func Setup() error {
 	// Maybe customize console encoder one day. To write pretty message on
 	// local console logging
 	//
-	//err := zap.RegisterEncoder("sc", NewConsoleEncoder)
-	//if err != nil {
-	//	return errors.WithStack(err)
-	//}
-	//dc.Encoding = "sc"
+	// err := zap.RegisterEncoder("sc", NewConsoleEncoder)
+	// if err != nil {
+	// 	return errors.WithStack(err)
+	// }
+	// dc.Encoding = "sc"
 
 	l, err := dc.Build()
 	if err != nil {

@@ -272,7 +272,8 @@ func (p *pgStorage) ByHash(ctx context.Context,
 		return nil, errors.WithStack(err)
 	}
 
-	if left.Status == pgtype.Present && right.Status == pgtype.Present {
+	switch {
+	case left.Status == pgtype.Present && right.Status == pgtype.Present:
 		middleNode := MiddleNode{Hash: hash}
 		var childHash []byte
 
@@ -288,9 +289,9 @@ func (p *pgStorage) ByHash(ctx context.Context,
 		}
 		copy(middleNode.Right[:], childHash)
 		return middleNode, nil
-	} else if left.Status == pgtype.Null && right.Status == pgtype.Null {
+	case left.Status == pgtype.Null && right.Status == pgtype.Null:
 		return Leaf(hash), nil
-	} else {
+	default:
 		return nil, errors.New("[assertion] unexpected node type")
 	}
 }

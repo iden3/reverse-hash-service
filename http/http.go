@@ -180,23 +180,20 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 				break LOOP
 			default:
 			}
-
-			if n.hash == merkletree.HashZero {
+			switch {
+			case n.hash == merkletree.HashZero:
 				appendErr(n.hash, errZeroHash)
-			} else if n.left == merkletree.HashZero &&
-				n.right == merkletree.HashZero {
+			case n.left == merkletree.HashZero &&
+				n.right == merkletree.HashZero:
 
 				err := storage.SaveLeaf(ctx, hashdb.Leaf(n.hash))
 				appendRs(n.hash, err)
-
-			} else {
-
+			default:
 				node := hashdb.MiddleNode{
 					Hash:  n.hash,
 					Left:  n.left,
 					Right: n.right}
 				appendRs(n.hash, storage.SaveMiddleNode(ctx, node))
-
 			}
 		}
 
