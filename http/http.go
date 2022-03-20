@@ -107,20 +107,10 @@ func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 }
 
 type nodesSubmitter interface {
-	SaveMiddleNode(ctx context.Context, node hashdb.MiddleNode) error
-	SaveLeaf(ctx context.Context, node hashdb.Leaf) error
+	SaveNodes(ctx context.Context, nodes []hashdb.Node) error
 }
 
-var errZeroHash = stderr.New("node hash is zero")
-
 func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
-	type respItem struct {
-		Hash    hexHash `json:"hash"`
-		Status  string  `json:"status"`
-		Error   string  `json:"error,omitempty"`
-		Message string  `json:"message,omitempty"`
-	}
-	type resp []respItem
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var req nodeSubmitRequest
@@ -131,73 +121,16 @@ func getNodeSubmitHandler(storage nodesSubmitter) http.HandlerFunc {
 			return
 		}
 
-		var rs resp
-
-		appendErr := func(hash merkletree.Hash, err error) {
-			// err must not be nil here
-			errMsg := err.Error()
-			switch {
-			case errors.Is(err, hashdb.ErrIncorrectHash):
-				errMsg = "node hash does not match to hash of children"
-			case errors.Is(err, hashdb.ErrCollision):
-				errMsg = "hash collision: found another node with this hash " +
-					"but different children"
-			case errors.Is(err, errZeroHash):
-				// pass: default message is OK
-			case errors.Is(err, hashdb.ErrMiddleNodeExists):
-				errMsg = "middle node with the same hash exists"
-			default:
-				log.WithContext(r.Context()).Errorw(err.Error(), zap.Error(err))
-			}
-			rs = append(rs, respItem{
-				Hash:   hexHash(hash),
-				Status: statusError,
-				Error:  errMsg})
+		err = storage.SaveNodes(ctx, req)
+		if err != nil {
+			log.WithContext(ctx).Errorw(err.Error(), zap.Error(err))
+			// TODO hide real error from user and show predefined errors only
+			jsonErr(ctx, w, http.StatusInternalServerError, err.Error())
+			return
 		}
 
-		appendRs := func(hash merkletree.Hash, err error) {
-			var msg string
-			switch {
-			case err == nil:
-				msg = "created"
-			case errors.Is(err, hashdb.ErrAlreadyExists):
-				msg = "already exists"
-			case errors.Is(err, hashdb.ErrLeafUpgraded):
-				msg = "leaf node was found and upgraded to middle node"
-			default:
-				appendErr(hash, err)
-				return
-			}
-			rs = append(rs,
-				respItem{Hash: hexHash(hash), Status: statusOK, Message: msg})
-		}
-
-	LOOP:
-		for _, n := range req {
-
-			select {
-			case <-ctx.Done():
-				break LOOP
-			default:
-			}
-			switch {
-			case n.hash == merkletree.HashZero:
-				appendErr(n.hash, errZeroHash)
-			case n.left == merkletree.HashZero &&
-				n.right == merkletree.HashZero:
-
-				err := storage.SaveLeaf(ctx, hashdb.Leaf(n.hash))
-				appendRs(n.hash, err)
-			default:
-				node := hashdb.MiddleNode{
-					Hash:  n.hash,
-					Left:  n.left,
-					Right: n.right}
-				appendRs(n.hash, storage.SaveMiddleNode(ctx, node))
-			}
-		}
-
-		jsonResp(ctx, w, http.StatusOK, rs)
+		jsonResp(ctx, w, http.StatusOK,
+			map[string]interface{}{keyStatus: statusOK})
 	}
 }
 

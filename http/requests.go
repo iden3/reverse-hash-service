@@ -5,51 +5,34 @@ import (
 	"encoding/json"
 
 	"github.com/iden3/go-merkletree-sql"
+	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/pkg/errors"
 )
 
-type node struct {
-	hash, left, right merkletree.Hash
-}
-
-type nodeSubmitRequest []node
+type nodeSubmitRequest []hashdb.Node
 
 const (
-	keyHash   = "hash"
-	keyLeft   = "left"
-	keyRight  = "right"
 	keyStatus = "status"
 	keyError  = "error"
-	keyNode   = "node"
 )
 
-func (n *node) UnmarshalJSON(bytes []byte) error {
-	var m map[string]interface{}
-	err := json.Unmarshal(bytes, &m)
+func (n *nodeSubmitRequest) UnmarshalJSON(bytes []byte) error {
+	var objList []json.RawMessage
+	err := json.Unmarshal(bytes, &objList)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	n.hash = merkletree.HashZero
-	n.left = merkletree.HashZero
-	n.right = merkletree.HashZero
-
-	for k, v := range m {
-		switch k {
-		case keyHash:
-			err = unpackHash(&n.hash, v)
-		case keyLeft:
-			err = unpackHash(&n.left, v)
-		case keyRight:
-			err = unpackHash(&n.right, v)
-		default:
-			err = errors.Errorf("unknown key %v", k)
-		}
+	*n = make(nodeSubmitRequest, len(objList))
+	nodes := make([]hashdb.Node, len(objList))
+	for i := range objList {
+		err := json.Unmarshal(objList[i], &nodes[i])
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error parsing node #%v", i+1)
 		}
 	}
 
+	*n = nodes
 	return nil
 }
 
