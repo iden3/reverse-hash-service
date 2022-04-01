@@ -1,0 +1,12 @@
+name: container
+
+on:
+  push:
+    branches:
+      - container
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: docker/setup-qemu-action@v1
