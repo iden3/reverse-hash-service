@@ -1,8 +1,6 @@
 # Build builder container
 FROM golang:1.18.0-alpine3.15 as builder
 
-RUN echo "3"
-
 RUN apk add --no-cache git
 
 COPY . /src
