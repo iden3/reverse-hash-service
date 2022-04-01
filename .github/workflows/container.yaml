@@ -14,3 +14,4 @@ jobs:
       - uses: docker/build-push-action@v2
         with:
           push: true
+          tags: ghcr.io/iden3/reverse-hash-service:latest
