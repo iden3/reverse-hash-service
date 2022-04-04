@@ -20,3 +20,4 @@ jobs:
         with:
           push: true
           tags: ghcr.io/iden3/reverse-hash-service:latest
+          platforms: linux/amd64,linux/arm64/v8
