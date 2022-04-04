@@ -18,4 +18,4 @@ RUN apk add --no-cache ca-certificates tzdata
 RUN adduser -D -g '' appuser
 USER appuser
 
-ENTRYPOINT ["/reverse-hash-service"]
+ENTRYPOINT ["/bin/reverse-hash-service"]

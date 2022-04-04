@@ -65,9 +65,10 @@ func TestProof(t *testing.T) {
 	//nolint:gocritic
 	// drawDotTree(bigMerkleTree)
 	saveTreeToRHS(t, router, bigMerkleTree)
+	drawTree(t, bigMerkleTree)
 
 	oneNodeMerkleTree := buildTree(t, []uint64{5577006791947779410})
-	saveTreeToRHS(t, router, bigMerkleTree)
+	saveTreeToRHS(t, router, oneNodeMerkleTree)
 	oneNodeMerkleTreeRoot := oneNodeMerkleTree.Root()
 
 	t.Run("Test save state", func(t *testing.T) {
@@ -507,6 +508,39 @@ func saveTreeToRHS(t testing.TB,
 	require.NoError(t, err)
 
 	submitNodesToRHS(t, httpRouter, req)
+}
+
+func drawTree(t testing.TB, merkleTree *merkletree.MerkleTree) {
+	ctx := context.Background()
+	var req nodeSubmitRequest
+	hashOne := merkletree.NewHashFromBigInt(big.NewInt(1))
+	err := merkleTree.Walk(ctx, nil, func(node *merkletree.Node) {
+		nodeKey, err := node.Key()
+		require.NoError(t, err)
+		switch node.Type {
+		case merkletree.NodeTypeMiddle:
+			req = append(req, hashdb.Node{
+				Hash:     *nodeKey,
+				Children: []merkletree.Hash{*node.ChildL, *node.ChildR},
+			})
+		case merkletree.NodeTypeLeaf:
+			req = append(req, hashdb.Node{
+				Hash: *nodeKey,
+				Children: []merkletree.Hash{
+					*node.Entry[0], *node.Entry[1], *hashOne},
+			})
+		case merkletree.NodeTypeEmpty:
+			// do not save zero nodes
+		default:
+			require.Failf(t, "unexpected node type", "unexpected node type: %v",
+				node.Type)
+		}
+	})
+	require.NoError(t, err)
+	reqBytes, err := json.Marshal(req)
+	require.NoError(t, err)
+
+	t.Log(string(reqBytes))
 }
 
 func submitNodesToRHS(t testing.TB,
