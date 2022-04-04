@@ -3,7 +3,7 @@ name: container
 on:
   push:
     branches:
-      - container
+      - main
 
 jobs:
   build:
