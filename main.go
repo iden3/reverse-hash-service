@@ -49,7 +49,13 @@ func main() {
 	// Syncing of console causes error. Ignore any errors on Sync.
 	defer func() { _ = log.Sync() }()
 
-	conn, err := pgxpool.Connect(context.Background(), v.GetString(cfgDb))
+	pxpoolConfig, err := pgxpool.ParseConfig(v.GetString(cfgDb))
+	if err != nil {
+		panic(err)
+	}
+	pxpoolConfig.LazyConnect = true
+
+	conn, err := pgxpool.ConnectConfig(context.Background(), pxpoolConfig)
 	if err != nil {
 		panic(err)
 	}
