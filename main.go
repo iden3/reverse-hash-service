@@ -19,7 +19,7 @@ import (
 // config settings
 const (
 	cfgDb         = "db"
-	cfgListenAddr = "listen-addr"
+	cfgListenAddr = "listen_addr"
 )
 
 func setupConfig() *viper.Viper {

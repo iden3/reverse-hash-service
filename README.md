@@ -4,12 +4,17 @@ Store and serve poseidon hashes.
 
 ## Run service
 
+
+
 ```console
+# create database
+createdb rhs && psql -d rhs < ./schema.sql
+
 # default database URL is postgers://rhs@localhost with local auth
 export RHS_DB="host=localhost password=pgpwd user=postgres database=rhs"
 
 # default listen address is :8080
-export RHS_LISTEN_ADDR=:8081
+# export RHS_LISTEN_ADDR=:8080
 
 go build && ./reverse-hash-service
 ```
