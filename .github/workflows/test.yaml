@@ -10,7 +10,7 @@ jobs:
   test:
     strategy:
       matrix:
-        containers: [ 1.17.8-bullseye ]
+        containers: [ 1.18.1-bullseye ]
     runs-on: ubuntu-latest
     container: golang:${{ matrix.containers }}
     env:

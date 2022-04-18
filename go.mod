@@ -1,9 +1,10 @@
 module github.com/iden3/reverse-hash-service
 
-go 1.17
+go 1.18
 
 require (
 	github.com/go-chi/chi/v5 v5.0.7
+	github.com/iden3/go-iden3-crypto v0.0.13
 	github.com/iden3/go-merkletree-sql v1.0.0-pre8
 	github.com/jackc/pgconn v1.11.0
 	github.com/jackc/pgtype v1.10.0
@@ -19,7 +20,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/iden3/go-iden3-crypto v0.0.13 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
