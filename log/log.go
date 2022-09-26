@@ -41,6 +41,10 @@ func Infof(format string, v ...interface{}) {
 	Logger.Infof(format, v...)
 }
 
+func Warnf(format string, v ...interface{}) {
+	Logger.Warnf(format, v...)
+}
+
 func Errorf(format string, v ...interface{}) {
 	Logger.Errorf(format, v...)
 }

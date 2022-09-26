@@ -12,6 +12,7 @@ import (
 	"github.com/iden3/reverse-hash-service/http"
 	"github.com/iden3/reverse-hash-service/log"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -60,6 +61,13 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
+
+	err = conn.Ping(context.Background())
+	if err != nil {
+		log.Warnf("database error, start without database connection: %+v",
+			errors.WithStack(err))
+		err = nil
+	}
 
 	storage := hashdb.New(conn)
 
