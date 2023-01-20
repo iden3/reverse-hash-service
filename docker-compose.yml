@@ -12,7 +12,7 @@ services:
       depends_on:
         - db
       labels:
-        - "traefik.http.routers.issuer.rule=Path(`/node`)"
+        - "traefik.http.routers.issuer.rule=PathPrefix(`/node`)"
         - "traefik.enable=true"
 
 
