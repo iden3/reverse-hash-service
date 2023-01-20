@@ -1,0 +1,48 @@
+version: '3.1'
+services:
+    rhs:
+      image: ghcr.io/iden3/reverse-hash-service:latest
+      restart: always
+      environment:
+        RHS_DB: "host=db password=${POSTGRES_PASSWORD:-secret} user=${POSTGRES_USER:-iden3} database=rhs"
+      ports:
+        - 8080:8080
+      networks:
+        - rhs_network
+      depends_on:
+        - db
+      labels:
+        - "traefik.http.routers.issuer.rule=Path(`/node`)"
+        - "traefik.enable=true"
+
+
+    db:
+      image: postgres
+      restart: always
+      environment:
+        POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-secret}"
+        POSTGRES_USER: "${POSTGRES_USER:-iden3}"
+        POSTGRES_DB: rhs
+      ports:
+        - 5432:5432
+      volumes:
+        - ./.postgres-data:/var/lib/postgresql/data
+      networks:
+        - rhs_network
+
+    reverse_proxy:
+      image: traefik:v2.8
+      restart: always
+      ports:
+        - 80:80
+      networks:
+        - rhs_network
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./.traefik/config:/etc/traefik/
+      depends_on:
+        - rhs
+
+networks:
+  rhs_network:
+
