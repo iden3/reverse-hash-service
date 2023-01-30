@@ -4,8 +4,6 @@ Store and serve poseidon hashes.
 
 ## Run service
 
-
-
 ```console
 # create database
 createdb rhs && psql -d rhs < ./schema.sql
@@ -17,6 +15,22 @@ export RHS_DB="host=localhost password=pgpwd user=postgres database=rhs"
 # export RHS_LISTEN_ADDR=:8080
 
 go build && ./reverse-hash-service
+```
+
+## Run service with docker-compose.yml file
+
+```console
+# Run docker-compose
+docker-compose up -d
+
+# Copy schema.sql to container with postgres
+docker cp schema.sql <db_container_name>:/
+
+# Exec to container
+docker exec -it <db_container_name> /bin/bash
+
+# Upload schema.sql inside on docker container
+psql -h localhost -U iden3  -d rhs < schema.sql
 ```
 
 ## Save new hashes
