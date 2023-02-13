@@ -29,6 +29,9 @@ docker cp schema.sql <db_container_name>:/
 # Exec to container
 docker exec -it <db_container_name> /bin/bash
 
+# Create rhs db
+createdb -U iden3 -h localhost rhs 
+
 # Upload schema.sql inside on docker container
 psql -h localhost -U iden3  -d rhs < schema.sql
 ```

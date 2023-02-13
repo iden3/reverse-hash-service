@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/iden3/reverse-hash-service/log"
@@ -63,6 +64,12 @@ func setupRouter(storage nodesStorage) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(Logger(log.Logger, ""))
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "X-CSRF-Token"},
+		MaxAge:         300,
+	}))
 	r.HandleFunc("/ping", getPingHandler()) // Liveness probe
 	r.Get("/node/{"+paramHash+"}", getNodeHandler(storage))
 	r.Post("/node", getNodeSubmitHandler(storage))
