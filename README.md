@@ -108,7 +108,7 @@ dual licensed as below, without any additional terms or conditions.
 
 ## License
 
-reverse-hash-service is part of the iden3 project copyright 2018 0kims Association
+reverse-hash-service is part of the iden3 project copyright 2023 0kims Association
 
 This project is licensed under either of
 
