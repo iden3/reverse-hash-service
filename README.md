@@ -1,6 +1,10 @@
 # reverse-hash-service
 
-Store and serve poseidon hashes.
+
+The Reverse Hash Service (RHS) is a service that stores iden3 identity public states (identity state and public nodes of 
+revocation tree and roots tree). 
+This service aims to enhance privacy of credential revocation status checks for identities.
+https://docs.iden3.io/services/rhs/
 
 ## Run service
 
@@ -74,3 +78,43 @@ curl localhost:8080/node/e33d2335edfc794a855cbfd235a7e9e8ea433e569591012cd743c17
 #     ]
 #   }
 # }
+```
+
+## Utility
+
+To fetch and generate merkle proofs, you can use the following utility library:
+
+https://github.com/iden3/merkletree-proof
+
+```go
+import (
+    "github.com/iden3/merkletree-proof"
+)
+
+
+stateHash, _ := merkletree.NewHashFromHex("e12084d0d72c492c703a2053b371026bceda40afb9089c325652dfd2e5e11223")
+
+cli := &merkletree_proof.HTTPReverseHashCli{URL: "<link to RHS>"}
+// get identity state roots
+
+stateValues, err := cli.GetNode(ctx, stateHash)
+```
+
+## Contributing
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as below, without any additional terms or conditions.
+
+## License
+
+reverse-hash-service is part of the iden3 project copyright 2023 0kims Association
+
+This project is licensed under either of
+
+- [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0) ([`LICENSE-APACHE`](LICENSE-APACHE))
+- [MIT license](https://opensource.org/licenses/MIT) ([`LICENSE-MIT`](LICENSE-MIT))
+
+at your option.
+
+
