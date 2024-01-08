@@ -1,14 +1,15 @@
 version: '3.1'
 services:
     rhs:
-      image: iden3/rhs
+      image: ghcr.io/iden3/reverse-hash-service:latest
       build:
+        context: ./
         dockerfile: ./Dockerfile
       restart: always
       environment:
         RHS_DB: "host=db password=${POSTGRES_PASSWORD:-secret} user=${POSTGRES_USER:-iden3} database=rhs"
       ports:
-        - 8080:8080
+        - 8081:8080
       networks:
         - rhs_network
       depends_on:
