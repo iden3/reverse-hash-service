@@ -9,7 +9,7 @@ services:
       environment:
         RHS_DB: "host=db password=${POSTGRES_PASSWORD:-secret} user=${POSTGRES_USER:-iden3} database=rhs"
       ports:
-        - 8081:8080
+        - 8080:8080
       networks:
         - rhs_network
       depends_on:
