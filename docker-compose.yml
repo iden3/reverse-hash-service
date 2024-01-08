@@ -1,7 +1,7 @@
 version: '3.1'
 services:
     rhs:
-      image: example/rhs
+      image: iden3/rhs
       build:
         dockerfile: ./Dockerfile
       restart: always
