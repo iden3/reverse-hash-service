@@ -24,17 +24,14 @@ go build && ./reverse-hash-service
 ## Run service with docker-compose.yml file
 
 ```console
-# Run docker-compose
-docker-compose up -d
+# Run docker compose
+docker compose up -d
 
 # Copy schema.sql to container with postgres
-docker cp schema.sql <db_container_name>:/
+docker cp schema.sql reverse-hash-service-db-1:/
 
 # Exec to container
-docker exec -it <db_container_name> /bin/bash
-
-# Create rhs db
-createdb -U iden3 -h localhost rhs 
+docker exec -it reverse-hash-service-db-1 /bin/bash
 
 # Upload schema.sql inside on docker container
 psql -h localhost -U iden3  -d rhs < schema.sql
