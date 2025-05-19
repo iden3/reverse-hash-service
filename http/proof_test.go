@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/iden3/go-iden3-crypto/poseidon"
-	"github.com/iden3/go-merkletree-sql"
+	merkletree "github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/go-merkletree-sql/db/memory"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/pkg/errors"
@@ -224,7 +224,7 @@ func TestProof(t *testing.T) {
 	}
 }
 
-//nolint:deadcode,unused //reason:need to generate
+//nolint:unused //reason:need to generate
 func logProof(t testing.TB, proof Proof) {
 	proofBytes, err := json.Marshal(proof)
 	require.NoError(t, err)
@@ -686,7 +686,7 @@ func TestFindCloseNode(t *testing.T) {
 	t.Log(i)
 }
 
-//nolint:deadcode,unused //reason: need to generate
+//nolint:unused //reason: need to generate
 func drawDotTree(mt *merkletree.MerkleTree) {
 	fmt.Fprint(os.Stderr, `digraph hierarchy {
 node [fontname=Monospace,fontsize=10,shape=box]

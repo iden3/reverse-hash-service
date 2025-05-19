@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iden3/go-merkletree-sql"
+	merkletree "github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	go_test_pg "github.com/olomix/go-test-pg"
 	"github.com/pkg/errors"
@@ -146,10 +146,12 @@ func TestGetNodeSubmitHandler(t *testing.T) {
 	testCases := []struct {
 		title    string
 		req      string
+		reqHdrs  [][2]string
 		method   string
 		body     string
 		wantCode int
 		wantBody string
+		wantHdrs [][2]string
 	}{
 		{
 			title:  "save few nodes",
@@ -213,6 +215,16 @@ func TestGetNodeSubmitHandler(t *testing.T) {
     ]
   }
 }`,
+			wantHdrs: [][2]string{
+				{
+					"Cache-Control",
+					"max-age=31536000, immutable, public",
+				},
+				{
+					"ETag",
+					`"2c32381aebce52c0c5c5a1fb92e726f66d977b58a1c8a0c14bb31ef968187325"`,
+				},
+			},
 		},
 		{
 			title:    "Get leaf",
@@ -229,6 +241,38 @@ func TestGetNodeSubmitHandler(t *testing.T) {
     ]
   }
 }`,
+			wantHdrs: [][2]string{
+				{
+					"Cache-Control",
+					"max-age=31536000, immutable, public",
+				},
+				{
+					"ETag",
+					`"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e"`,
+				},
+			},
+		},
+		{
+			title: "etag",
+			req:   "/node/658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e",
+			reqHdrs: [][2]string{
+				{
+					"If-None-Match",
+					`"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e"`,
+				},
+			},
+			wantCode: http.StatusNotModified,
+			wantBody: ``,
+			wantHdrs: [][2]string{
+				{
+					"Cache-Control",
+					"max-age=31536000, immutable, public",
+				},
+				{
+					"ETag",
+					`"658c7a65594ebb0815e1cc20f54284ccdb51bb1625f103c116ce58444145381e"`,
+				},
+			},
 		},
 		{
 			title:    "Missing Node",
@@ -252,12 +296,28 @@ func TestGetNodeSubmitHandler(t *testing.T) {
 			}
 			req, err := http.NewRequest(method, tc.req, bodyReader)
 			require.NoError(t, err)
+			for _, hdr := range tc.reqHdrs {
+				req.Header.Set(hdr[0], hdr[1])
+			}
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
 
 			require.Equal(t, tc.wantCode, rr.Code, rr.Body.String())
-			require.JSONEq(t, tc.wantBody, rr.Body.String(), rr.Body.String())
+			if tc.wantBody != "" {
+				require.JSONEq(t, tc.wantBody, rr.Body.String(), rr.Body.String())
+			} else {
+				require.Empty(t, rr.Body.String())
+			}
 
+			if rr.Code == http.StatusOK && method == http.MethodGet {
+				cacheControlHeader := rr.Header().Get("Cache-Control")
+				require.Equal(t, "max-age=31536000, immutable, public", cacheControlHeader)
+			}
+
+			for _, hdr := range tc.wantHdrs {
+				vv := rr.Header().Get(hdr[0])
+				require.Equal(t, hdr[1], vv, hdr[0])
+			}
 		})
 	}
 }

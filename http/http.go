@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	stderr "errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/iden3/go-merkletree-sql"
+	merkletree "github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/iden3/reverse-hash-service/log"
 	"github.com/pkg/errors"
@@ -91,10 +92,24 @@ func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
+		var cacheControl = "max-age=31536000, immutable, public"
+
 		var nodeHash merkletree.Hash
 		err := unpackHash(&nodeHash, chi.URLParam(r, paramHash))
 		if err != nil {
 			jsonErr(ctx, w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if v := r.Header.Get("If-None-Match"); v != "" &&
+			v[0] == '"' && v[len(v)-1] == '"' &&
+			strings.EqualFold(
+				strings.ToLower(v[1:len(v)-1]),
+				strings.ToLower(nodeHash.Hex())) {
+
+			w.Header().Set("Cache-Control", cacheControl)
+			w.Header().Set("ETag", `"`+nodeHash.Hex()+`"`)
+			w.WriteHeader(http.StatusNotModified)
 			return
 		}
 
@@ -109,6 +124,9 @@ func getNodeHandler(storage nodesGetter) http.HandlerFunc {
 			return
 		}
 
+		// set max-age to a year
+		w.Header().Set("Cache-Control", cacheControl)
+		w.Header().Set("ETag", `"`+node.Hash.Hex()+`"`)
 		jsonResp(ctx, w, http.StatusOK, nodeResponse{node, statusOK})
 	}
 }

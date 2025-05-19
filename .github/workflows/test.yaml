@@ -10,7 +10,10 @@ jobs:
   test:
     strategy:
       matrix:
-        containers: [ 1.18.1-bullseye ]
+        containers:
+        - 1.22.12-bookworm
+        - 1.23.9-bookworm
+        - 1.24.3-bookworm
     runs-on: ubuntu-latest
     container: golang:${{ matrix.containers }}
     env:
@@ -19,8 +22,8 @@ jobs:
       PGUSER: postgres
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - uses: actions/cache@v2
+        uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build

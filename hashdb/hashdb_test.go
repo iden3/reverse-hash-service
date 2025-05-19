@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iden3/go-merkletree-sql"
+	merkletree "github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/go-merkletree-sql/db/memory"
 	"github.com/jackc/pgtype"
 	go_test_pg "github.com/olomix/go-test-pg"

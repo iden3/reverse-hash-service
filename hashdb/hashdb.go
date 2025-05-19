@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/iden3/go-merkletree-sql"
+	merkletree "github.com/iden3/go-merkletree-sql"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
