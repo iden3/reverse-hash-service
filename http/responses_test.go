@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	merkletree "github.com/iden3/go-merkletree-sql"
+	"github.com/iden3/go-merkletree-sql"
 	"github.com/stretchr/testify/require"
 )
 

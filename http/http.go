@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	merkletree "github.com/iden3/go-merkletree-sql"
+	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/iden3/reverse-hash-service/log"
 	"github.com/pkg/errors"

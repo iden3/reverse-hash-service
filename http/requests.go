@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	merkletree "github.com/iden3/go-merkletree-sql"
+	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/pkg/errors"
 )

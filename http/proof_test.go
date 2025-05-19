@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/iden3/go-iden3-crypto/poseidon"
-	merkletree "github.com/iden3/go-merkletree-sql"
+	"github.com/iden3/go-merkletree-sql"
 	"github.com/iden3/go-merkletree-sql/db/memory"
 	"github.com/iden3/reverse-hash-service/hashdb"
 	"github.com/pkg/errors"
